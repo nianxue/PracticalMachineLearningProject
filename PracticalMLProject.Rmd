@@ -1,0 +1,77 @@
+---
+title: "PracticalMachineLearningProject"
+output: html_document
+---
+```{r}
+library(caret)
+
+pmlTrain <- read.csv("pml-training.csv")
+pmlTest <- read.csv("pml-testing.csv")
+```
+
+## data pre-processing
+
+First, delete predictors which have majority of NAs for both train and test data set
+second, delete predictors which have few variation
+```{r}
+numOfNAs <- apply(pmlTrain,2,is.na)
+numOfNAs <- colSums(numOfNAs)
+
+pmlTrain <- pmlTrain[,numOfNAs<10000]
+pmlTest <- pmlTest[,numOfNAs<10000]
+
+
+nearZeroVars <- nearZeroVar(pmlTrain)
+pmlTrain <- pmlTrain[,-nearZeroVars]
+pmlTest <- pmlTest[,-nearZeroVars]
+
+obsId <- pmlTrain$X
+
+pmlTrain$X <- NULL
+pmlTrain$raw_timestamp_part_1 <- NULL
+pmlTrain$raw_timestamp_part_2 <- NULL
+pmlTest$X <- NULL
+pmlTest$raw_timestamp_part_1 <- NULL
+pmlTest$raw_timestamp_part_2 <- NULL
+
+```
+
+## Split data
+```{r}
+#split data
+set.seed(2)
+idx <- createDataPartition(pmlTrain$classe, p = 0.8, list = F)
+
+train <- pmlTrain[idx,]
+test <- pmlTrain[-idx,]
+
+```
+
+## Build a Random Forest model
+```{r}
+set.seed(532)
+Fit <- train(classe~., data = train, method = "rf", 
+                  trControl = trainControl(method = "cv",number = 10))
+
+# the plot below show that mtry = 39 is a good choice and with a accuracy about 0.999
+plot(Fit)
+Fit
+
+#validate the test error on the test set with 3923 observations
+pred <- predict(Fit,test)
+testTable <- table(pred,test$classe)
+testTable
+
+# test accuracy are:
+sum(diag(as.matrix(testTable)))/nrow(test)
+
+# predict tha final 20 observations and the results are:
+predict(Fit,pmlTest)
+```
+## Summary
+
+The data set was split into test and train data sets since the data we have for this project 
+is huge. The train data is used to train model and get a estimation of model performance by 
+10 folds cross validation. The test set is used to make sure the accuracy acquired from 
+10 fold cv and test set are identical.
+The result show that using random forest we can get a very promising accuracy but not easy to interpret.
